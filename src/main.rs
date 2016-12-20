@@ -22,51 +22,53 @@ static JPEG_EXTENSION: &'static str = "jpg";
 const FHD: (u32, u32) = (1920, 1080);
 
 #[derive(Debug)]
-enum AssetsReadingError {
+enum WindowsSpotlightError {
     EnvVar(env::VarError),
     Io(io::Error),
 }
 
-impl fmt::Display for AssetsReadingError {
+type WindowsSpotlightResult<T> = Result<T, WindowsSpotlightError>;
+
+impl fmt::Display for WindowsSpotlightError {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            AssetsReadingError::EnvVar(ref error) => {
+            WindowsSpotlightError::EnvVar(ref error) => {
                 write!(formatter, "Environment variable error: {}", error)
             }
-            AssetsReadingError::Io(ref error) => write!(formatter, "IO error: {}", error),
+            WindowsSpotlightError::Io(ref error) => write!(formatter, "IO error: {}", error),
         }
     }
 }
 
-impl error::Error for AssetsReadingError {
+impl error::Error for WindowsSpotlightError {
     fn description(&self) -> &str {
         match *self {
-            AssetsReadingError::EnvVar(ref error) => error.description(),
-            AssetsReadingError::Io(ref error) => error.description(),
+            WindowsSpotlightError::EnvVar(ref error) => error.description(),
+            WindowsSpotlightError::Io(ref error) => error.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            AssetsReadingError::EnvVar(ref error) => Some(error),
-            AssetsReadingError::Io(ref error) => Some(error),
+            WindowsSpotlightError::EnvVar(ref error) => Some(error),
+            WindowsSpotlightError::Io(ref error) => Some(error),
         }
     }
 }
 
-impl From<env::VarError> for AssetsReadingError {
-    fn from(error: env::VarError) -> AssetsReadingError {
-        AssetsReadingError::EnvVar(error)
+impl From<env::VarError> for WindowsSpotlightError {
+    fn from(error: env::VarError) -> WindowsSpotlightError {
+        WindowsSpotlightError::EnvVar(error)
     }
 }
 
-impl From<io::Error> for AssetsReadingError {
-    fn from(error: io::Error) -> AssetsReadingError {
-        AssetsReadingError::Io(error)
+impl From<io::Error> for WindowsSpotlightError {
+    fn from(error: io::Error) -> WindowsSpotlightError {
+        WindowsSpotlightError::Io(error)
     }
 }
 
-fn read_assets_directory() -> Result<ReadDir, AssetsReadingError> {
+fn read_assets_directory() -> WindowsSpotlightResult<ReadDir> {
     Ok(Path::new(&env::var(USER_PROFILE_ENV_VAR)?).join(ASSETS_RELATIVE_PATH)
         .read_dir()?)
 }
@@ -87,31 +89,32 @@ fn calculate_file_md5_digest(path: &Path) -> io::Result<String> {
     Ok(md5.result_str())
 }
 
+fn process_assets(destination: &Path) -> WindowsSpotlightResult<()> {
+    for asset in read_assets_directory()? {
+        let asset = asset.unwrap();
+        if asset.file_type().unwrap().is_file() {
+            if let Ok(dimensions) = JPEGDecoder::new(File::open(asset.path()).unwrap())
+                .dimensions() {
+                if is_full_hd_or_better(dimensions) {
+                    let path = asset.path();
+                    let mut new_path = destination.join(calculate_file_md5_digest(&path).unwrap());
+                    new_path.set_extension(JPEG_EXTENSION);
+                    if !new_path.exists() {
+                        fs::copy(path, new_path).unwrap();
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let user_profile_env_var = env::var(USER_PROFILE_ENV_VAR).unwrap();
     let user_profile = Path::new(&user_profile_env_var);
     let wallpapers = user_profile.join(WALLPAPERS_RELATIVE_PATH);
 
-    match read_assets_directory() {
-        Ok(assets) => {
-            for asset in assets {
-                let asset = asset.unwrap();
-                if asset.file_type().unwrap().is_file() {
-                    if let Ok(dimensions) = JPEGDecoder::new(File::open(asset.path()).unwrap())
-                        .dimensions() {
-                        if is_full_hd_or_better(dimensions) {
-                            let path = asset.path();
-                            let mut new_path =
-                                wallpapers.join(calculate_file_md5_digest(&path).unwrap());
-                            new_path.set_extension(JPEG_EXTENSION);
-                            if !new_path.exists() {
-                                fs::copy(path, new_path).unwrap();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Err(error) => println!("{}", error),
+    if let Err(error) = process_assets(&wallpapers) {
+        println!("{}", error)
     }
 }
