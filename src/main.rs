@@ -2,7 +2,7 @@ extern crate crypto;
 extern crate image;
 
 use std::env;
-use std::io::Read;
+use std::io::{self, Read};
 use std::fs;
 use std::fs::File;
 use std::path::Path;
@@ -24,17 +24,16 @@ fn is_full_hd_or_better(dimensions: (u32, u32)) -> bool {
     FHD <= dimensions && dimensions.0 * FHD.1 == dimensions.1 * FHD.0
 }
 
-fn read_file(path: &Path) -> Vec<u8> {
+fn read_file(path: &Path) -> io::Result<Vec<u8>> {
     let mut buffer = Vec::new();
-    File::open(path).and_then(|mut file| file.read_to_end(&mut buffer));
-    buffer
+    File::open(path)?.read_to_end(&mut buffer)?;
+    Ok(buffer)
 }
 
-fn calculate_file_md5_digest(path: &Path) -> String {
-    let buffer = read_file(path);
+fn calculate_file_md5_digest(path: &Path) -> io::Result<String> {
     let mut md5 = Md5::new();
-    md5.input(buffer.as_slice());
-    md5.result_str()
+    md5.input(read_file(path)?.as_slice());
+    Ok(md5.result_str())
 }
 
 fn main() {
@@ -50,7 +49,7 @@ fn main() {
                 .dimensions() {
                 if is_full_hd_or_better(dimensions) {
                     let path = asset.path();
-                    let mut new_path = wallpapers.join(calculate_file_md5_digest(&path));
+                    let mut new_path = wallpapers.join(calculate_file_md5_digest(&path).unwrap());
                     new_path.set_extension(JPEG_EXTENSION);
                     if !new_path.exists() {
                         fs::copy(path, new_path).unwrap();
