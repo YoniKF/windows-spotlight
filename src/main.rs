@@ -1,10 +1,10 @@
 extern crate crypto;
 extern crate image;
 
+mod errors;
+
 use std::env;
-use std::error;
 use std::io::{self, Read};
-use std::fmt;
 use std::fs::{self, File, ReadDir};
 use std::path::Path;
 
@@ -14,59 +14,14 @@ use crypto::md5::Md5;
 use image::ImageDecoder;
 use image::jpeg::JPEGDecoder;
 
+use errors::WindowsSpotlightResult;
+
 static USER_PROFILE_ENV_VAR: &'static str = "UserProfile";
 static ASSETS_RELATIVE_PATH: &'static str = r#"AppData\Local\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets"#;
 static WALLPAPERS_RELATIVE_PATH: &'static str = r#"Pictures\Wallpapers\Windows Spotlight 2"#;
 static JPEG_EXTENSION: &'static str = "jpg";
 
 const FHD: (u32, u32) = (1920, 1080);
-
-#[derive(Debug)]
-enum WindowsSpotlightError {
-    EnvVar(env::VarError),
-    Io(io::Error),
-}
-
-type WindowsSpotlightResult<T> = Result<T, WindowsSpotlightError>;
-
-impl fmt::Display for WindowsSpotlightError {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            WindowsSpotlightError::EnvVar(ref error) => {
-                write!(formatter, "Environment variable error: {}", error)
-            }
-            WindowsSpotlightError::Io(ref error) => write!(formatter, "IO error: {}", error),
-        }
-    }
-}
-
-impl error::Error for WindowsSpotlightError {
-    fn description(&self) -> &str {
-        match *self {
-            WindowsSpotlightError::EnvVar(ref error) => error.description(),
-            WindowsSpotlightError::Io(ref error) => error.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            WindowsSpotlightError::EnvVar(ref error) => Some(error),
-            WindowsSpotlightError::Io(ref error) => Some(error),
-        }
-    }
-}
-
-impl From<env::VarError> for WindowsSpotlightError {
-    fn from(error: env::VarError) -> WindowsSpotlightError {
-        WindowsSpotlightError::EnvVar(error)
-    }
-}
-
-impl From<io::Error> for WindowsSpotlightError {
-    fn from(error: io::Error) -> WindowsSpotlightError {
-        WindowsSpotlightError::Io(error)
-    }
-}
 
 fn read_assets_directory() -> WindowsSpotlightResult<ReadDir> {
     Ok(Path::new(&env::var(USER_PROFILE_ENV_VAR)?).join(ASSETS_RELATIVE_PATH)
