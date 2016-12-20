@@ -31,16 +31,16 @@ Options:
 -h --help       Show this screen.
 ";
 
-#[derive(RustcDecodable)]
-struct Arguments {
-    arg_destination: String
-}
-
-static USER_PROFILE_ENV_VAR: &'static str = "UserProfile";
-static ASSETS_RELATIVE_PATH: &'static str = r#"AppData\Local\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets"#;
-static JPEG_EXTENSION: &'static str = "jpg";
+const USER_PROFILE_ENV_VAR: &'static str = "UserProfile";
+const ASSETS_RELATIVE_PATH: &'static str = r#"AppData\Local\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets"#;
+const JPEG_EXTENSION: &'static str = "jpg";
 
 const FHD: (u32, u32) = (1920, 1080);
+
+#[derive(RustcDecodable)]
+struct Arguments {
+    arg_destination: String,
+}
 
 fn read_assets_directory() -> WindowsSpotlightResult<ReadDir> {
     Ok(Path::new(&env::var(USER_PROFILE_ENV_VAR)?).join(ASSETS_RELATIVE_PATH)
