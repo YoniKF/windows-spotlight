@@ -1,5 +1,7 @@
 extern crate crypto;
+extern crate docopt;
 extern crate image;
+extern crate rustc_serialize;
 
 mod errors;
 
@@ -11,14 +13,31 @@ use std::path::Path;
 use crypto::digest::Digest;
 use crypto::md5::Md5;
 
+use docopt::Docopt;
+
 use image::ImageDecoder;
 use image::jpeg::JPEGDecoder;
 
 use errors::WindowsSpotlightResult;
 
+const USAGE: &'static str = "
+Windows Spotlight Collector.
+
+Usage:
+  windows_spotlight.exe <destination>
+  windows_spotlight.exe (-h | --help)
+
+Options:
+-h --help       Show this screen.
+";
+
+#[derive(RustcDecodable)]
+struct Arguments {
+    arg_destination: String
+}
+
 static USER_PROFILE_ENV_VAR: &'static str = "UserProfile";
 static ASSETS_RELATIVE_PATH: &'static str = r#"AppData\Local\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets"#;
-static WALLPAPERS_RELATIVE_PATH: &'static str = r#"Pictures\Wallpapers\Windows Spotlight 2"#;
 static JPEG_EXTENSION: &'static str = "jpg";
 
 const FHD: (u32, u32) = (1920, 1080);
@@ -64,11 +83,11 @@ fn process_assets(destination: &Path) -> WindowsSpotlightResult<()> {
 }
 
 fn main() {
-    let user_profile_env_var = env::var(USER_PROFILE_ENV_VAR).unwrap();
-    let user_profile = Path::new(&user_profile_env_var);
-    let wallpapers = user_profile.join(WALLPAPERS_RELATIVE_PATH);
+    let arguments: Arguments = Docopt::new(USAGE)
+        .and_then(|d| d.decode())
+        .unwrap_or_else(|e| e.exit());
 
-    if let Err(error) = process_assets(&wallpapers) {
+    if let Err(error) = process_assets(Path::new(&arguments.arg_destination)) {
         println!("{}", error)
     }
 }
