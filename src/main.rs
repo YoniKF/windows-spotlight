@@ -91,16 +91,15 @@ fn calculate_file_md5_digest(path: &Path) -> io::Result<String> {
 
 fn process_assets(destination: &Path) -> WindowsSpotlightResult<()> {
     for asset in read_assets_directory()? {
-        let asset = asset.unwrap();
-        if asset.file_type().unwrap().is_file() {
-            if let Ok(dimensions) = JPEGDecoder::new(File::open(asset.path()).unwrap())
-                .dimensions() {
+        let asset = asset?;
+        if asset.file_type()?.is_file() {
+            if let Ok(dimensions) = JPEGDecoder::new(File::open(asset.path())?).dimensions() {
                 if is_full_hd_or_better(dimensions) {
                     let path = asset.path();
-                    let mut new_path = destination.join(calculate_file_md5_digest(&path).unwrap());
+                    let mut new_path = destination.join(calculate_file_md5_digest(&path)?);
                     new_path.set_extension(JPEG_EXTENSION);
                     if !new_path.exists() {
-                        fs::copy(path, new_path).unwrap();
+                        fs::copy(path, new_path)?;
                     }
                 }
             }
