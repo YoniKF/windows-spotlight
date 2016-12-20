@@ -1,0 +1,8 @@
+[package]
+name = "windows_spotlight"
+version = "0.1.0"
+authors = ["Yoni"]
+
+[dependencies]
+image = "*"
+rust-crypto = "^0.2"
