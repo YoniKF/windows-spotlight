@@ -87,7 +87,5 @@ fn main() {
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
 
-    if let Err(error) = process_assets(Path::new(&arguments.arg_destination)) {
-        println!("{}", error)
-    }
+    process_assets(Path::new(&arguments.arg_destination)).unwrap_or_else(|e| e.exit());
 }

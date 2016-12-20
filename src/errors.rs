@@ -1,12 +1,20 @@
 use std::env;
 use std::error;
-use std::io;
+use std::io::{self, Write};
 use std::fmt;
+use std::process;
 
 #[derive(Debug)]
 pub enum WindowsSpotlightError {
     EnvVar(env::VarError),
     Io(io::Error),
+}
+
+impl WindowsSpotlightError {
+    pub fn exit(&self) -> ! {
+        let _ = writeln!(io::stderr(), "{}", self);
+        process::exit(1);
+    }
 }
 
 pub type WindowsSpotlightResult<T> = Result<T, WindowsSpotlightError>;
