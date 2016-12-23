@@ -7,7 +7,7 @@ mod errors;
 
 use std::env;
 use std::io::{self, Read};
-use std::fs::{self, File, ReadDir};
+use std::fs::{self, DirEntry, File, ReadDir};
 use std::path::Path;
 
 use crypto::digest::Digest;
@@ -51,6 +51,17 @@ fn is_full_hd_or_better(dimensions: (u32, u32)) -> bool {
     FHD <= dimensions && dimensions.0 * FHD.1 == dimensions.1 * FHD.0
 }
 
+fn should_collect(asset: &DirEntry) -> io::Result<bool> {
+    if asset.file_type()?.is_file() {
+        if let Ok(dimensions) = JPEGDecoder::new(File::open(asset.path())?).dimensions() {
+            if is_full_hd_or_better(dimensions) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 fn read_file(path: &Path) -> io::Result<Vec<u8>> {
     let mut buffer = Vec::new();
     File::open(path)?.read_to_end(&mut buffer)?;
@@ -63,20 +74,20 @@ fn calculate_file_md5_digest(path: &Path) -> io::Result<String> {
     Ok(md5.result_str())
 }
 
+fn collect_image(from: &Path, to: &Path) -> io::Result<()> {
+    let mut to = to.join(calculate_file_md5_digest(from)?);
+    to.set_extension(JPEG_EXTENSION);
+    if !to.exists() {
+        fs::copy(from, to)?;
+    }
+    Ok(())
+}
+
 fn process_assets(destination: &Path) -> WindowsSpotlightResult<()> {
     for asset in read_assets_directory()? {
         let asset = asset?;
-        if asset.file_type()?.is_file() {
-            if let Ok(dimensions) = JPEGDecoder::new(File::open(asset.path())?).dimensions() {
-                if is_full_hd_or_better(dimensions) {
-                    let path = asset.path();
-                    let mut new_path = destination.join(calculate_file_md5_digest(&path)?);
-                    new_path.set_extension(JPEG_EXTENSION);
-                    if !new_path.exists() {
-                        fs::copy(path, new_path)?;
-                    }
-                }
-            }
+        if should_collect(&asset)? {
+            collect_image(&asset.path(), destination)?;
         }
     }
     Ok(())
